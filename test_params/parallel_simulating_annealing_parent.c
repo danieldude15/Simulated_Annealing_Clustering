@@ -9,40 +9,22 @@
 
 #define N 10
 
-int childpids[N];
-
-int get_next_available_index() {
-	int i, kill_ret;
-	for (i=0;i<N;i++) {
-		if (childpids[i]==-1) return i;
-		kill_ret = kill(childpids[i],0);
-		//printf("proccess id: %d kill signal returned: %d ? %d\n",childpids[i],kill_ret,ESRCH);
-		if (kill_ret<0) {
-			if(errno==ESRCH)
-				return i; /* proc does not exist */
-			else {
-			   continue;
-			}
-		}
-		else {
-			//printf("proc with id %d exists\n",childpids[i]);
-			continue; /* proc exists */		
-		}
-	}
-	usleep(1000*500);
-	return -1;
-}
-
-void main() {
+int main( int argc, char **argv ) {
 	clock_t start, end;
     double cpu_time_used;
-    char file_name[50],c1[10],c2[10],c3[10],c4[10];
+    char c1[10],c2[10],c3[10],c4[10],path_to_child_cmd[256];
     double vals[4] = {0.01, 0.001, 15, 0.5};
     double intervals[4] = {0.02, 0.002, 2, 0.2 };
     double max_vals[4] = {0.1 , 0.015 , 25 , 1.5 };
     double i , j , k , l , p=0;
     int x,pid;
-    for(x=0;x<N;x++) childpids[x]=-1;
+    
+    if(argc!=2) {
+		printf("run %s <realpath_of_child_exec>\n",argv[0]);
+		return -1;
+	} else {
+		sprintf(path_to_child_cmd,"%s",argv[1]);
+	}
     x=1;
     for (i=vals[0];i<max_vals[0];i+=intervals[0]) {
 		for(j=vals[1];j<max_vals[1];j+=intervals[1]) {
@@ -60,15 +42,15 @@ void main() {
 						sprintf(c2,"%.5lf",j);
 						sprintf(c3,"%.5lf",k);
 						sprintf(c4,"%.5lf",l);
-						if (execlp("/home/cky800/git/simulating_annealing/test_params/params","params",c1,c2,c3,c4,NULL) < 0)
+						if (execlp(path_to_child_cmd,path_to_child_cmd,c1,c2,c3,c4,NULL) < 0)
 							perror("execlpXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n");
 						/* Never returns */
-						return;
+						return 1;
 					}
 					x++;
 				}
 			}
 		}
 	}
-	return;
+	return 1;
 }
