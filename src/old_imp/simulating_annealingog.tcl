@@ -58,6 +58,7 @@ set t $params(t0)
 
 proc draw_graph {} {
 	puts "drawing graph"
+	set screen_size $::params(screen_size)
 	set text_color white
 	set node_color red
 	set delta 10
@@ -69,8 +70,8 @@ proc draw_graph {} {
 	}
 	foreach point_id [array names ::points] {
 		lassign $::points($point_id) x0 y0
-		set x0 [expr $x0]
-		set y0 [expr $y0]
+		set x0 [expr $x0*$screen_size]
+		set y0 [expr $y0*$screen_size]
 		#puts "p_id: $point_id (x,y) ($x0,$y0)"
 		#draw point (node)
 		#set ::canvas_v_id($point_id) [.c create oval [expr $x0-$delta] [expr $y0-$delta] [expr $x0+$delta] [expr $y0+$delta] -fill red]
@@ -78,20 +79,22 @@ proc draw_graph {} {
 		foreach connection $::connections($point_id) {
 			#draw all connections to point (node)
 			lassign $::points($connection) x1 y1
-			set x1 [expr $x1]
-			set y1 [expr $y1]
+			set x1 [expr $x1*$screen_size]
+			set y1 [expr $y1*$screen_size]
 			#puts "connected to p_id: $connection (x,y) ($x0,$y0)"
 			lappend ::canvas_e_id($point_id) [.c create line $x0 $y0 $x1 $y1 -fill gray]
 		}
 	}
 	foreach point_id [array names ::points] {
 		lassign $::points($point_id) x0 y0
-		set x0 [expr $x0]
-		set y0 [expr $y0]
+		set x0 [expr $x0*$screen_size]
+		set y0 [expr $y0*$screen_size]
 		#puts "p_id: $point_id (x,y) ($x0,$y0)"
 		#draw point (node)
 		if {[info exists ::point_color($point_id)]} {
 			lassign $::point_color($point_id) node_color text_color
+		} else {
+			puts "info does not exist in ::point_color($point_id) using $text_color on $node_color"
 		}
 		set ::canvas_v_id($point_id) [.c create oval [expr $x0-$delta] [expr $y0-$delta] [expr $x0+$delta] [expr $y0+$delta] -fill $node_color]
 		set ::canvas_v_id($point_id,txt) [.c create text [expr $x0] [expr $y0] -fill $text_color -justify center -text "$point_id" -font {Helvetica -13}]
@@ -179,8 +182,8 @@ proc read_net_from_file {path} {
 	foreach line $data {
 		if {$line eq "*Edges"} {break}
 		lassign $line i name x y z
-		set x [expr $x*$screen_size]
-		set y [expr $y*$screen_size]
+		#~ set x [expr $x*$screen_size]
+		#~ set y [expr $y*$screen_size]
 		set ::points($i) [list $x $y]
 		set ::connections($i) [list]
 	}
@@ -193,16 +196,17 @@ proc read_net_from_file {path} {
 		lappend ::connections($j) $i
 	}
 	if {[catch {
-		set file [open HW2Clust.clu r]
+		set file [open ../networks/HW2Clust.clu r]
 		set data [read $file]
 		close $file
 		set data [split $data "\n"]
 		lvarpop data
-		for {set i 1} {$i<$::Vertices_count} {incr i} {
+		for {set i 1} {$i<=$::Vertices_count} {incr i} {
 			set cluster [lvarpop data]
 			set ::point_color($i) $::color($cluster)
+			#puts "set ::point_color($i) $::color($cluster)"
 		}
-	} err]} {puts $err}
+	} err]} {puts "DID NOT READ CLU FILE FOR CLUSTER COLORING BECAUSE: $err"}
 	for {set i 1} {$i<=[expr $::Vertices_count-1]} {incr i} {
 		for {set j [expr $i+1]} {$j<=$::Vertices_count} {incr j} {
 			if {[lcontain $::connections($i) $j] || [lcontain $::connections($j) $i]} {
@@ -465,7 +469,7 @@ proc new_energy_of_points { points_ptr id c e_info } {
 }
 
 proc get_all_ns {points_ptr} {
-	upvar 2 $points_ptr points
+	upvar $points_ptr points
 	set n1 [set n2 [set n3 [set n4 0]]]
 	set size [array size points]
 	for {set i 1} {$i<[expr $size-1]} {incr i} {
@@ -489,6 +493,7 @@ proc get_all_ns {points_ptr} {
 					}
 				}
 			}
+			array unset done
 		}
 	}
 	#getting n3
@@ -572,10 +577,9 @@ proc orientation {p1 q1 r} {
 
 proc distance_from_circle {pos} {
 	lassign $pos x y
-	set circle_center [expr $::params(screen_size)/2.0]
+	set circle_center 0.5
 	#getting x points
-	if {[set div [expr $circle_center-sqrt(pow($x-$circle_center,2)+pow($y-$circle_center,2))]]<=0} { set div 0.0001 }
-	return [expr 1/$div]
+	return sqrt(pow($x-$circle_center,2)+pow($y-$circle_center,2))
 }
 
 proc prob_calc { old_e new_e T } {
@@ -663,8 +667,10 @@ proc retransform_points_to_screen_size {} {
 proc min {a b} {return [expr $a > $b ? $b : $a] }
 proc max {a b} {return [expr $a > $b ? $a : $b] }
 
-lassign $argv path
+lassign $argv path title
+catch {.c create text [expr $params(screen_size)/2] 15 -fill black -justify center -text "$title" -font {Helvetica -15}} err
 expr srand(int(rand()*1000))
 read_net_from_file $path
 draw_graph
+#puts [get_all_ns points]
 #cluster_points_simulating_annealing
