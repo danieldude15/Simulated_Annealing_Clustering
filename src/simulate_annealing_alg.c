@@ -9,7 +9,7 @@
 
 #define N 136
 
-double c[4] = {0.1, 0.001, 35, 0.5};
+double c[4] = {0.1, 0, 35, 0};
 double T = 100;
 double init_T = 100;
 double threshold = 1;
@@ -385,7 +385,7 @@ void main( int argc, char **argv ) {
 	char output_net_file_name[256], net_file_name[256],tcl_gui_path[256];
 	int skip_draw=1;
 	if (argc<3) {
-		printf("command should be %s <input_network_path.net> <output_network_path.net> [path_to_tcl_gui]\n",argv[0]);
+		printf("command should be %s <input_network_path.net> <output_network_path.net> [realpath_to_tcl_gui]\n",argv[0]);
 		return;
 	} else if(argc==4) {
 		skip_draw=0;

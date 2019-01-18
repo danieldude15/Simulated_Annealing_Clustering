@@ -58,7 +58,6 @@ set t $params(t0)
 
 proc draw_graph {} {
 	puts "drawing graph"
-	set screen_size $::params(screen_size)
 	set text_color white
 	set node_color red
 	set delta 10
@@ -70,8 +69,8 @@ proc draw_graph {} {
 	}
 	foreach point_id [array names ::points] {
 		lassign $::points($point_id) x0 y0
-		set x0 [expr $x0*$screen_size]
-		set y0 [expr $y0*$screen_size]
+		set x0 [expr $x0]
+		set y0 [expr $y0]
 		#puts "p_id: $point_id (x,y) ($x0,$y0)"
 		#draw point (node)
 		#set ::canvas_v_id($point_id) [.c create oval [expr $x0-$delta] [expr $y0-$delta] [expr $x0+$delta] [expr $y0+$delta] -fill red]
@@ -79,22 +78,20 @@ proc draw_graph {} {
 		foreach connection $::connections($point_id) {
 			#draw all connections to point (node)
 			lassign $::points($connection) x1 y1
-			set x1 [expr $x1*$screen_size]
-			set y1 [expr $y1*$screen_size]
+			set x1 [expr $x1]
+			set y1 [expr $y1]
 			#puts "connected to p_id: $connection (x,y) ($x0,$y0)"
 			lappend ::canvas_e_id($point_id) [.c create line $x0 $y0 $x1 $y1 -fill gray]
 		}
 	}
 	foreach point_id [array names ::points] {
 		lassign $::points($point_id) x0 y0
-		set x0 [expr $x0*$screen_size]
-		set y0 [expr $y0*$screen_size]
+		set x0 [expr $x0]
+		set y0 [expr $y0]
 		#puts "p_id: $point_id (x,y) ($x0,$y0)"
 		#draw point (node)
 		if {[info exists ::point_color($point_id)]} {
 			lassign $::point_color($point_id) node_color text_color
-		} else {
-			puts "info does not exist in ::point_color($point_id) using $text_color on $node_color"
 		}
 		set ::canvas_v_id($point_id) [.c create oval [expr $x0-$delta] [expr $y0-$delta] [expr $x0+$delta] [expr $y0+$delta] -fill $node_color]
 		set ::canvas_v_id($point_id,txt) [.c create text [expr $x0] [expr $y0] -fill $text_color -justify center -text "$point_id" -font {Helvetica -13}]
@@ -160,8 +157,8 @@ proc read_net_from_file {path} {
 	foreach line $data {
 		if {$line eq "*Edges"} {break}
 		lassign $line i name x y z
-		#~ set x [expr $x*$screen_size]
-		#~ set y [expr $y*$screen_size]
+		set x [expr $x*$screen_size]
+		set y [expr $y*$screen_size]
 		set ::points($i) [list $x $y]
 		set ::connections($i) [list]
 	}
@@ -174,7 +171,7 @@ proc read_net_from_file {path} {
 		lappend ::connections($j) $i
 	}
 	if {[catch {
-		set file [open networks/HW2Clust.clu r]
+		set file [open ../networks/HW2Clust.clu r]
 		set data [read $file]
 		close $file
 		set data [split $data "\n"]
@@ -182,9 +179,8 @@ proc read_net_from_file {path} {
 		for {set i 1} {$i<=$::Vertices_count} {incr i} {
 			set cluster [lvarpop data]
 			set ::point_color($i) $::color($cluster)
-			#puts "set ::point_color($i) $::color($cluster)"
 		}
-	} err]} {puts "DID NOT READ CLU FILE FOR CLUSTER COLORING BECAUSE: $err"}
+	} err]} {puts $err}
 	for {set i 1} {$i<=[expr $::Vertices_count-1]} {incr i} {
 		for {set j [expr $i+1]} {$j<=$::Vertices_count} {incr j} {
 			if {[lcontain $::connections($i) $j] || [lcontain $::connections($j) $i]} {
@@ -211,6 +207,7 @@ proc _pause {{msg "paused: "}} {
     exec stty $stty_settings
     puts ""
 }
+
 
 proc retransform_points_to_screen_size {} {
 	global points
@@ -260,10 +257,58 @@ proc retransform_points_to_screen_size {} {
 proc min {a b} {return [expr $a > $b ? $b : $a] }
 proc max {a b} {return [expr $a > $b ? $a : $b] }
 
-lassign $argv path title
-catch {.c create text [expr $params(screen_size)/2] 15 -fill black -justify center -text "$title" -font {Helvetica -15}} err
-expr srand(int(rand()*1000))
-read_net_from_file $path
-draw_graph
-#puts [get_all_ns points]
-#cluster_points_simulating_annealing
+bind . <y> {save_net} ;#what happends when 'y' is pressed on the keyboard
+bind . <n> {continue_to_next} ;#what happends when 'n' is pressed on the keyboard
+bind . <q> { ;#what happends when 'q' is pressed on the keyboard
+	set f [open ../output/results.txt w]
+	foreach param $::good_params_list {
+		puts $f $param
+	}
+	close $f
+	exit
+} 
+
+set user_responded 0
+set cur_net_name ""
+set good_params_list [list]
+#when clicking 'y' it will save constant values to variable good_params_list for later use to write into a file
+proc save_net {} {
+	lassign [split $::cur_net_name "-"] - c1 - c2 - c3 - c4
+	puts "$c1 $c2 $c3 $c4"
+	lappend ::good_params_list [list "c1=$c1" "c2=$c2" "c3=$c3" "c4=$c4"]
+	set ::user_responded 1
+}
+#when clicking 'n' it will skip to the next net and do nothing with currect one that was just viewd
+proc continue_to_next {} {
+	set ::user_responded 1
+	puts "net: $::cur_net_name disqualified"
+	return
+}
+
+set all_nets [exec ls nets] ;# ls is a linux command that shows what files are in nets folder
+foreach net_file $all_nets { ;#foreach file in nets folder
+	set ::user_responded 0
+	set ::cur_net_name $net_file
+	lassign [split $::cur_net_name "-"] - c1 - c2 - c3 - c4
+	puts [set info "c1 = $c1  --  c2 = $c2 -- c3 = $c3 -- c4 = $c4"]
+	puts $net_file
+	#read net to global variables that control certixes and edges
+	read_net_from_file "nets/$net_file"
+	#draw the values of the global variable read from file
+	draw_graph
+	#show text containing information of constants 
+	set id [.c create text 300 13 -fill black -justify center -text "$info" -font {Helvetica -13}]
+	#while user did not press 'y' or 'n' keep waiting.
+	while {!$::user_responded} {sleep 100}
+	.c delete $id
+	array unset ::points
+	array unset ::con_mat
+	array unset ::connections
+}
+set f [open results.txt w]
+foreach param $good_params_list {
+	puts $f $param
+}
+close $f
+
+exit
